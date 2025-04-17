@@ -1,10 +1,14 @@
 <template>
 
-  <NewTodoInput @add-todo="handleNewTodo" v-if="creatingTodo === true"
+  <HelpBox style="z-index: 99; max-width: 600px;"
+    :style="{ left: windowPositions.help.x + 'px', top: windowPositions.help.y + 'px' }" v-if="displayHelp === true"
+    @mousedown="startDrag($event, 'help')" />
+
+  <NewTodoInput @add-todo="handleNewTodo" v-if="creatingTodo === true" style="z-index: 20;"
     :style="{ left: windowPositions.input.x + 'px', top: windowPositions.input.y + 'px' }"
     @mousedown="startDrag($event, 'input')" />
 
-  <div class="window active movable" id="todoList" style="max-width: 400px;"
+  <div class="window active movable" id="todoList" style="min-width: 30%;max-width: 600px; z-index: 10;"
     :style="{ left: windowPositions.list.x + 'px', top: windowPositions.list.y + 'px' }"
     @mousedown="startDrag($event, 'list')">
     <div class="title-bar">
@@ -57,10 +61,11 @@
 <script>
 import { ref, onMounted, onUnmounted, nextTick, watch } from "vue";
 import NewTodoInput from "./components/newTodoInput.vue";
+import HelpBox from "./components/help.vue";
 
 export default {
   name: 'App',
-  components: { NewTodoInput },
+  components: { NewTodoInput, HelpBox },
   setup() {
     const newTodo = ref("");
     const selectedTodoId = ref(null);
@@ -68,17 +73,37 @@ export default {
     const editingCell = ref({ id: null, field: null });
 
     const creatingTodo = ref(false);
+    const displayHelp = ref(true);
+
 
     const defaultWindowPositions = {
       list: { x: 50, y: 50 },
       input: { x: 300, y: 100 },
+      help: { x: 10, y: 10 },
+    };
+
+    let saved = {}
+    try {
+      saved = JSON.parse(localStorage.getItem("windowPos")) || {}
+    } catch (_) {
+      //ignore invalid JSON
     }
-    const windowPositions = ref(null);
-    localStorage.getItem("windowPos")
-      ? windowPositions.value = JSON.parse(localStorage.getItem("windowPos"))
-      : (windowPositions.value = defaultWindowPositions);
 
+    // Rebuild the ref (needed for if we add new windows later)
+    function mergePositions(def, sv) {
+      const out = {}
+      for (const key in def) {
+        out[key] = {
+          ...def[key],
+          ...(sv[key] || {})
+        }
+      }
+      return out
+    }
 
+    const windowPositions = ref(
+      mergePositions(defaultWindowPositions, saved)
+    )
     const drag = ref(null);
 
     const initialLoadData = [
@@ -257,6 +282,10 @@ export default {
         e.preventDefault();
         windowPositions.value = defaultWindowPositions;
       }
+      if (e.key === "h") {
+        e.preventDefault();
+        displayHelp.value = !displayHelp.value;
+      }
 
 
 
@@ -271,13 +300,17 @@ export default {
     });
 
     return {
-      addTodos, todos, newTodo, selectTodo, selectedTodoId, editCell, stopEditCell, editingCell, moveSelection, handleKey, handleNewTodo, deleteSelectedTodo, creatingTodo, createTodo, windowPositions, startDrag
+      addTodos, todos, newTodo, selectTodo, selectedTodoId, editCell, stopEditCell, editingCell, moveSelection, handleKey, handleNewTodo, deleteSelectedTodo, creatingTodo, createTodo, windowPositions, startDrag, displayHelp
     }
   },
 }
 </script>
 
 <style>
+table {
+  width: 100%;
+}
+
 .selected {
   background-color: lightblue;
 }
