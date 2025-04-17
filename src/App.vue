@@ -4,7 +4,7 @@
     :style="{ left: windowPositions.help.x + 'px', top: windowPositions.help.y + 'px' }" v-if="displayHelp === true"
     @mousedown="startDrag($event, 'help')" />
 
-  <NewTodoInput @add-todo="handleNewTodo" v-if="creatingTodo === true" style="z-index: 20;"
+  <NewTodoInput @add-todo="handleNewTodo" v-if="creatingTodo === true" style="z-index: 100;"
     :style="{ left: windowPositions.input.x + 'px', top: windowPositions.input.y + 'px' }"
     @mousedown="startDrag($event, 'input')" />
 
@@ -79,7 +79,7 @@ export default {
     const defaultWindowPositions = {
       list: { x: 50, y: 50 },
       input: { x: 300, y: 100 },
-      help: { x: 10, y: 10 },
+      help: { x: 400, y: 10 },
     };
 
     let saved = {}

@@ -43,7 +43,8 @@ export default {
       'enter': 'Save ToDo edit',
       'esc': 'Close entry box / escape',
       'd': 'Delete selected ToDo',
-      'm': 'Reset window positions (may need refresh first)'
+      'm': 'Reset window positions (may need refresh first)',
+      'h': 'Show/Hide help'
     })
     onMounted(() => {
       console.log("Helped");
