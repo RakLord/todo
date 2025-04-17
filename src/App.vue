@@ -1,6 +1,12 @@
 <template>
 
-  <div class="window active" id="appContainer">
+  <NewTodoInput @add-todo="handleNewTodo" v-if="creatingTodo === true"
+    :style="{ left: windowPositions.input.x + 'px', top: windowPositions.input.y + 'px' }"
+    @mousedown="startDrag($event, 'input')" />
+
+  <div class="window active movable" id="todoList" style="max-width: 400px;"
+    :style="{ left: windowPositions.list.x + 'px', top: windowPositions.list.y + 'px' }"
+    @mousedown="startDrag($event, 'list')">
     <div class="title-bar">
       <div class="title-bar-text">ToDo List</div>
       <div class="title-bar-controls">
@@ -11,11 +17,6 @@
     </div>
     <div class="window-body has-space">
 
-      <form @submit.prevent="addTodos()" class="field-row">
-        <!-- TODO - Replace this with a new input dialog, either by pressing "a" which brings up a quick entry box, or using a :n {txt} format -->
-        <input v-model="newTodo" />
-        <button>+</button>
-      </form>
 
       <table id="todoList">
         <thead>
@@ -27,20 +28,22 @@
         </thead>
 
         <tbody>
-          <tr v-for="(todo, index) in todos" :key="todo.id" :class="{ selected: selectedTodoId === todo.id }"
+          <tr v-for="todo in todos" :key="todo.id" :class="{ selected: selectedTodoId === todo.id }"
             @click="selectTodo(todo.id)">
 
-            <th>{{ todo.id }}</th>
-            <th @click.stop="editCell(todo.id, 'text')">
+            <td>{{ todo.id }}</td>
+
+            <td @click.stop="editCell(todo.id, 'text')" class="description-cell">
               <template v-if="editingCell.id === todo.id && editingCell.field === 'text'">
                 <input class="editing" v-model="todo.description" @blur="stopEditCell" @keyup.esc="stopEditCell"
-                  autofocus />
+                  @keyup.enter="stopEditCell" autofocus />
               </template>
               <template v-else>
                 {{ todo.description }}
               </template>
-            </th>
-            <th>{{ todo.priority }}</th>
+            </td>
+
+            <td>{{ todo.priority }}</td>
           </tr>
         </tbody>
       </table>
@@ -48,18 +51,36 @@
     </div>
   </div>
 
+
 </template>
 
 <script>
-import { ref, onMounted, onUnmounted, nextTick } from "vue";
+import { ref, onMounted, onUnmounted, nextTick, watch } from "vue";
+import NewTodoInput from "./components/newTodoInput.vue";
 
 export default {
   name: 'App',
-  components: {},
+  components: { NewTodoInput },
   setup() {
     const newTodo = ref("");
     const selectedTodoId = ref(null);
+    const prevSelectedTodoId = ref(null);
     const editingCell = ref({ id: null, field: null });
+
+    const creatingTodo = ref(false);
+
+    const defaultWindowPositions = {
+      list: { x: 50, y: 50 },
+      input: { x: 300, y: 100 },
+    }
+    const windowPositions = ref(null);
+    localStorage.getItem("windowPos")
+      ? windowPositions.value = JSON.parse(localStorage.getItem("windowPos"))
+      : (windowPositions.value = defaultWindowPositions);
+
+
+    const drag = ref(null);
+
     const initialLoadData = [
       {
         id: Date.now(),
@@ -75,6 +96,58 @@ export default {
       : (storedTodos = initialLoadData);
 
     const todos = ref(storedTodos);
+
+    function save() {
+      localStorage.setItem("todos", JSON.stringify(todos.value));
+    }
+
+    function startDrag(evt, id) {
+      console.log(id);
+      if (evt.button !== 0) return;
+      drag.value = {
+        id,
+        startX: evt.clientX,
+        startY: evt.clientY,
+        origX: windowPositions.value[id].x,
+        origY: windowPositions.value[id].y,
+      };
+      window.addEventListener("mousemove", onDrag);
+      window.addEventListener("mouseup", endDrag);
+    }
+
+    function onDrag(evt) {
+      if (!drag.value) return;
+      const dx = evt.clientX - drag.value.startX;
+      const dy = evt.clientY - drag.value.startY;
+
+      /* update the reactive store → DOM moves automatically */
+      const pos = windowPositions.value[drag.value.id];
+      pos.x = drag.value.origX + dx;
+      pos.y = drag.value.origY + dy;
+    }
+
+    function endDrag() {
+      if (!drag.value) return;
+      drag.value = null;
+      window.removeEventListener('mousemove', onDrag);
+      window.removeEventListener('mouseup', endDrag);
+    }
+
+    watch(
+      windowPositions,
+      (val) => localStorage.setItem('windowPos', JSON.stringify(val)),
+      { deep: true }
+    );
+
+    function handleNewTodo(text) {
+      const newId = Date.now();
+      todos.value.push({
+        id: newId,
+        description: text,
+        priority: 4,
+      });
+      save();
+    }
 
     function addTodos() {
       if (newTodo.value !== "") {
@@ -104,33 +177,58 @@ export default {
     }
     function stopEditCell() {
       editingCell.value = { id: null, field: null };
-      localStorage.setItem("todos", JSON.stringify(todos.value))
+      save();
     }
 
     function moveSelection(direction) {
       if (todos.value.length === 0) return;
 
       const currentIndex = todos.value.findIndex(todo => todo.id === selectedTodoId.value);
+      if (selectedTodoId) {
 
+        prevSelectedTodoId.value = selectedTodoId.value;
+      }
       let newIndex = currentIndex === -1
         ? 0
         : Math.max(0, Math.min(todos.value.length - 1, currentIndex + direction));
       selectedTodoId.value = todos.value[newIndex].id;
     }
 
+    function deleteSelectedTodo() {
+      if (selectedTodoId.value === null) return;
+      todos.value = todos.value.filter(todo => todo.id !== selectedTodoId.value);
+      selectedTodoId.value = prevSelectedTodoId.value;
+      save();
+    }
+
+    function createTodo() {
+      creatingTodo.value = true;
+    }
+
     function handleKey(e) {
       const targetTag = e.target.tagName.toLowerCase();
-      const isTyping = targetTag === "input" || targetTag === "textarea";
+      let isTyping;
+      isTyping = targetTag === "input" || targetTag === "textarea";
+      if (e.key === "Escape") {
+        isTyping = false;
+      }
 
+      if (e.key === "a") {
+        // Bring up new todo input
+        if (isTyping) return;
+        createTodo();
+      }
       if (e.key === "i") {
-        if (!isTyping) {
-          e.preventDefault();
-          console.log(targetTag, isTyping);
-          editCell(selectedTodoId.value, 'text');
-        }
+        if (isTyping) return;
+        e.preventDefault();
+        console.log(targetTag, isTyping);
+        editCell(selectedTodoId.value, 'text');
       }
 
       if (e.key === "Escape") {
+        if (creatingTodo.value === true) {
+          creatingTodo.value = false;
+        }
         if (editingCell.value.id !== null) {
           stopEditCell();
         } else {
@@ -139,7 +237,7 @@ export default {
         return;
       }
 
-      if (isTyping) return;
+      if (isTyping) return; // =============== Anything after this does not run if in an input box
       if (editingCell.value.id !== null) return;
 
       if (e.key === "ArrowDown" || e.key === "j") {
@@ -148,6 +246,16 @@ export default {
       } else if (e.key === "ArrowUp" || e.key === "k") {
         e.preventDefault();
         moveSelection(-1);
+      }
+
+      if (e.key === "d") {
+        e.preventDefault();
+        deleteSelectedTodo();
+      }
+
+      if (e.key === "m") {
+        e.preventDefault();
+        windowPositions.value = defaultWindowPositions;
       }
 
 
@@ -163,7 +271,7 @@ export default {
     });
 
     return {
-      addTodos, todos, newTodo, selectTodo, selectedTodoId, editCell, stopEditCell, editingCell, moveSelection, handleKey
+      addTodos, todos, newTodo, selectTodo, selectedTodoId, editCell, stopEditCell, editingCell, moveSelection, handleKey, handleNewTodo, deleteSelectedTodo, creatingTodo, createTodo, windowPositions, startDrag
     }
   },
 }
@@ -172,5 +280,12 @@ export default {
 <style>
 .selected {
   background-color: lightblue;
+}
+
+.description-cell {
+  max-width: 40ch;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 </style>
