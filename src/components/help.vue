@@ -43,6 +43,7 @@ export default {
       'enter': 'Save ToDo edit',
       'esc': 'Close entry box / escape',
       'd': 'Delete selected ToDo',
+      'q/e': 'Edit selected ToDo priority',
       'm': 'Reset window positions (may need refresh first)',
       'h': 'Show/Hide help'
     })

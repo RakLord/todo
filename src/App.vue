@@ -106,9 +106,10 @@ export default {
     )
     const drag = ref(null);
 
+
     const initialLoadData = [
       {
-        id: Date.now(),
+        id: 0,
         description: "Make ToDo work",
         priority: 4
       },
@@ -124,6 +125,11 @@ export default {
 
     function save() {
       localStorage.setItem("todos", JSON.stringify(todos.value));
+    }
+
+    function generateId() {
+      if (todos.value.length === 0) return 0;
+      return Math.max(...Object.values(todos.value).map(obj => obj.id)) + 1;
     }
 
     function startDrag(evt, id) {
@@ -165,7 +171,7 @@ export default {
     );
 
     function handleNewTodo(text) {
-      const newId = Date.now();
+      const newId = generateId();
       todos.value.push({
         id: newId,
         description: text,
@@ -176,7 +182,7 @@ export default {
 
     function addTodos() {
       if (newTodo.value !== "") {
-        const newId = Date.now();
+        const newId = generateId();
         todos.value.push({
           id: newId,
           description: newTodo.value,
@@ -228,6 +234,25 @@ export default {
 
     function createTodo() {
       creatingTodo.value = true;
+    }
+
+    function updatePriority(mode) {
+
+      if (selectedTodoId.value === null) return;
+      const currentIndex = todos.value.findIndex(todo => todo.id === selectedTodoId.value);
+
+      switch (mode) {
+        case 1:
+          if (todos.value[currentIndex].priority >= 4) return;
+          todos.value[currentIndex].priority += 1
+          return;
+        case 0:
+
+          if (todos.value[currentIndex].priority <= 1) return;
+          todos.value[currentIndex].priority -= 1
+          return;
+      }
+
     }
 
     function handleKey(e) {
@@ -287,6 +312,15 @@ export default {
         displayHelp.value = !displayHelp.value;
       }
 
+      if (e.key === "q") {
+        e.preventDefault();
+        updatePriority(0);
+      }
+      if (e.key === "e") {
+        e.preventDefault();
+        updatePriority(1);
+      }
+
 
 
     }
@@ -300,7 +334,7 @@ export default {
     });
 
     return {
-      addTodos, todos, newTodo, selectTodo, selectedTodoId, editCell, stopEditCell, editingCell, moveSelection, handleKey, handleNewTodo, deleteSelectedTodo, creatingTodo, createTodo, windowPositions, startDrag, displayHelp
+      addTodos, todos, newTodo, selectTodo, selectedTodoId, editCell, stopEditCell, editingCell, moveSelection, handleKey, handleNewTodo, deleteSelectedTodo, creatingTodo, createTodo, windowPositions, startDrag, displayHelp, generateId
     }
   },
 }
